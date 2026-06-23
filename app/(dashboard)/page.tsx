@@ -2,8 +2,6 @@
 "use client"; // Chuyển thành Client Component để dùng state cho modal
 
 import React, { useState, useEffect } from "react";
-import KpiCard from "@/components/KpiCard";
-import WeeklyChart from "@/components/WeeklyChart";
 import AddTaskModal from "@/components/AddTaskModal"; // Import modal
 
 // Định nghĩa kiểu dữ liệu mẫu sau này map với cột của Google Sheets
@@ -40,7 +38,6 @@ interface ProjectItem {
 export default function Page() {
   // State để quản lý dữ liệu và modal
   const [projects, setProjects] = useState<ProjectItem[]>([]);
-  const [weeklyActivity, setWeeklyActivity] = useState<ChartDataItem[]>([]);
   const [isModalOpen, setModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
