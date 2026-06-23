@@ -2,9 +2,6 @@ import { google } from "googleapis";
 
 export const SHEET_ID = "1ej1tIq4nsR2xmFPL3Wpm47YjorVNsf4qmrW7uLxyvjo";
 function getCredentials() {
-  console.log("EMAIL:", process.env.GOOGLE_CLIENT_EMAIL);
-  console.log("HAS_KEY:", !!process.env.GOOGLE_PRIVATE_KEY);
-
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 

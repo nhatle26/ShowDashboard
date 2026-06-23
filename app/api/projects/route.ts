@@ -14,17 +14,12 @@ export async function GET(request: Request) {
 
         const sheets = await getSheetsClient();
 
-        console.log("Sheet ID:", sheetId);
-        console.log("Tab:", tab);
-
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: sheetId,
             range: `${tab}!A1:Z100`,
         });
 
         const rows = response.data.values || [];
-
-        console.log("Rows found:", rows.length);
 
         return NextResponse.json({
             success: true,
