@@ -22,7 +22,7 @@ export async function getSheetsClient() {
     email: credentials.client_email,
     key: credentials.private_key,
     scopes: [
-      "https://www.googleapis.com/auth/spreadsheets"
+      "https://www.googleapis.com/auth/spreadsheets" // Cần quyền ghi để list/append
     ],
   });
 
