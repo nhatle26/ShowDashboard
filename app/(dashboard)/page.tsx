@@ -1,10 +1,23 @@
 // app/(dashboard)/page.tsx
 "use client"; // Chuyển thành Client Component để dùng state cho modal
 
-import React, { useState, useEffect } from "react";
-import AddTaskModal from "@/components/AddTaskModal"; // Import modal
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import AddTaskModal from "@/components/AddTaskModal";
 import MasterPlanView from "@/components/MasterPlanView"; // Import Master Plan
 import OverdueTasksWarning from "@/components/OverdueTasksWarning"; // Import cảnh báo
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import { useDroppable } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from 'lucide-react';
 
 // Định nghĩa kiểu dữ liệu mẫu sau này map với cột của Google Sheets
 interface ProjectItem {
@@ -38,7 +51,41 @@ interface ProjectItem {
   monthEst?: string;
   weekActual?: string;
   monthActual?: string;
+  originalIndex: number; // Thêm index gốc để gửi về API
+  headerType?: 'phase' | 'majorTask' | 'issue' | null;
 }
+
+// Component cho một dòng có thể kéo thả
+const SortableRow = ({ p, idx, children }: { p: ProjectItem, idx: number, children: React.ReactNode }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: p.originalIndex, data: { task: p } }); // Sử dụng originalIndex làm id
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : 1,
+    position: 'relative' as 'relative',
+  };
+
+  return (
+    <tr ref={setNodeRef} style={style} {...attributes} className={`transition-colors duration-150 border-b border-zinc-800/30 ${p.isHeader ? '' : 'hover:bg-zinc-800/40'}`}>
+      {!p.isHeader && (
+        <td className="px-2 py-2.5 text-zinc-500 cursor-grab" {...listeners}>
+          <GripVertical size={14} />
+        </td>
+      )}
+      {children}
+    </tr>
+  );
+};
+
 
 export default function Page() {
   // State để quản lý dữ liệu và modal
@@ -56,6 +103,17 @@ export default function Page() {
   const [dueThisWeekCount, setDueThisWeekCount] = useState(0);
   const [onTrackRate, setOnTrackRate] = useState(0);
 
+  // State cho danh sách người thực hiện và hỗ trợ
+  const [assignees, setAssignees] = useState<string[]>([]);
+  const [supporters, setSupporters] = useState<string[]>([]);
+
+  // Lọc danh sách các task cha để truyền vào modal
+  const parentTasks = useMemo(() => {
+    return projects
+      .filter(p => p.isHeader && (p.headerType === 'majorTask' || p.headerType === 'issue'))
+      .map(p => p.taskId);
+  }, [projects]);
+
   const [tabs, setTabs] = useState<string[]>([
     "__masterplan__",
     "Master",
@@ -66,8 +124,12 @@ export default function Page() {
     "4.MA"
   ]);
 
-  useEffect(() => {
-    if (activeTab === '__masterplan__') return; // Master Plan có component riêng để fetch data
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
     async function loadProjects() {
       try {
@@ -78,7 +140,10 @@ export default function Page() {
         const resData = await response.json();
 
         if (resData.success && Array.isArray(resData.data)) {
-          const formattedProjects: ProjectItem[] = resData.data;
+          // Thêm originalIndex vào mỗi item
+          const formattedProjects: ProjectItem[] = resData.data.map((item: any, index: number) => ({
+            ...item, originalIndex: index + 1 // Sheet row index là 1-based, bỏ qua header
+          }));
 
           // Tính toán KPI mở rộng
           const tasksOnly = formattedProjects.filter(p => !p.isHeader);
@@ -128,6 +193,12 @@ export default function Page() {
           setTotalMandays(mandays);
 
           setProjects(formattedProjects);
+
+          // Cập nhật danh sách assignees và supporters
+          if (resData.meta) {
+            setAssignees(resData.meta.assignees || []);
+            setSupporters(resData.meta.supporters || []);
+          }
         } else {
           setProjects([]);
           setIsError(true);
@@ -140,8 +211,93 @@ export default function Page() {
         setIsLoading(false);
       }
     }
-    if (activeTab) loadProjects();
+
+
+  useEffect(() => {
+    if (activeTab === '__masterplan__') return;
+    loadProjects();
   }, [activeTab]);
+
+  // Hàm xử lý khi kết thúc kéo thả
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over) return;
+    if (active.id === over.id) return; // Không làm gì nếu kéo và thả vào cùng một chỗ
+
+    // Case 1: Di chuyển sang tab khác
+    const overId = over.id.toString();
+    if (overId.startsWith('tab-') && active.data.current?.task) {
+      const destinationTab = overId.replace('tab-', '');
+      if (destinationTab === activeTab) return; // Không làm gì nếu thả vào tab hiện tại
+
+      const taskToMove = active.data?.current?.task as ProjectItem;
+      if (!taskToMove) return;
+
+      // Hiển thị xác nhận trước khi di chuyển
+      if (confirm(`Bạn có chắc muốn chuyển task "${taskToMove.detailTask}" sang tab "${destinationTab}"?`)) {
+        try {
+          setIsLoading(true);
+          const response = await fetch('/api/projects', {
+            method: 'PATCH', // Sử dụng PATCH thay vì DELETE
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sourceTab: activeTab,
+              destinationTab: destinationTab,
+              rowData: taskToMove,
+              sourceIndex: taskToMove.originalIndex,
+            }),
+          });
+
+          if (!response.ok) throw new Error('Failed to move task');
+
+          // Load lại dữ liệu của tab hiện tại
+          await loadProjects();
+        } catch (error) {
+          console.error("Error moving task:", error);
+          alert("Có lỗi xảy ra khi di chuyển task.");
+        } finally {
+          setIsLoading(false);
+        }
+      }
+      return;
+    } else {
+      // Case 2: Sắp xếp lại trong cùng tab
+      const oldIndex = projects.findIndex(p => p.originalIndex === active.id);
+      const newIndex = projects.findIndex(p => p.originalIndex === over.id);
+
+      if (oldIndex === -1 || newIndex === -1) {
+        return; // Không tìm thấy item, không làm gì cả
+      }
+
+      // 1. Cập nhật UI ngay lập tức để tạo cảm giác mượt mà
+      const reorderedProjects = arrayMove(projects, oldIndex, newIndex);
+      setProjects(reorderedProjects);
+
+      // 2. Gọi API để lưu lại thứ tự mới
+      try {
+        // Không cần bật isLoading vì UI đã cập nhật, chạy ngầm
+        const response = await fetch('/api/projects', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tab: activeTab,
+            projects: reorderedProjects, // Gửi toàn bộ danh sách đã sắp xếp
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save new order');
+        }
+        // Không cần load lại project vì client và server đã đồng bộ
+      } catch (error) {
+        console.error("Error reordering task:", error);
+        alert("Có lỗi xảy ra khi lưu lại thứ tự. Dữ liệu có thể không được cập nhật.");
+        // Nếu lỗi, rollback lại trạng thái cũ
+        setProjects(projects);
+      }
+    }
+  };
 
   return (
     <>
@@ -196,204 +352,184 @@ export default function Page() {
         </>
       )}
 
-      {/* Pill Tabs */}
-      <div className="mb-6">
-        <div className="flex flex-wrap gap-2 p-1 bg-zinc-900/50 backdrop-blur-md rounded-xl border border-zinc-800/50 w-fit">
-          {tabs.map((t) => {
-            const isMasterPlan = t === '__masterplan__';
-            const label = isMasterPlan ? 'Master Plan' : t;
-
-            return (
-              <button
-                key={t}
-                onClick={() => setActiveTab(t)}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${activeTab === t
-                  ? "bg-gradient-to-b from-zinc-700 to-zinc-800 text-white shadow-md border border-zinc-600/50"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 border border-transparent"
-                  }`}
-              >
-                {label}
-              </button>
-            );
-          })}
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
+        {/* Pill Tabs */}
+        <div className="mb-6">
+          <div className="flex flex-wrap gap-2 p-1 bg-zinc-900/50 backdrop-blur-md rounded-xl border border-zinc-800/50 w-fit">
+            {tabs.map((t) => (
+              <DroppableTab key={t} id={t} activeTab={activeTab} onClick={() => setActiveTab(t)} />
+            ))}
+          </div>
         </div>
-      </div>
 
-      {activeTab === '__masterplan__' ? (
-        <MasterPlanView />
-      ) : (
-        <>
-          <OverdueTasksWarning tasks={overdueTasks} />
-          {/* BẢNG DỮ LIỆU: FULL WIDTH */}
-          <div className="bg-gradient-to-br from-[#071019] via-[#0b1016] to-[#0a0a0c] backdrop-blur-xl rounded-2xl border border-zinc-800/80 shadow-2xl p-5">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-5">
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <h3 className="text-lg font-bold text-white tracking-wide">Task List</h3>
-                  <span className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-bold px-2.5 py-1 rounded-full">
-                    {projects.filter(p => !p.isHeader).length} TASKS
-                  </span>
+        {activeTab === '__masterplan__' ? (
+          <MasterPlanView />
+        ) : (
+          <>
+            <OverdueTasksWarning tasks={overdueTasks} />
+            {/* BẢNG DỮ LIỆU: FULL WIDTH */}
+            <div className="bg-gradient-to-br from-[#071019] via-[#0b1016] to-[#0a0a0c] backdrop-blur-xl rounded-2xl border border-zinc-800/80 shadow-2xl p-5">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-5">
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <h3 className="text-lg font-bold text-white tracking-wide">Task List</h3>
+                    <span className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-bold px-2.5 py-1 rounded-full">
+                      {projects.filter(p => !p.isHeader).length} TASKS
+                    </span>
+                  </div>
                 </div>
+
+                <button
+                  onClick={() => setModalOpen(true)}
+                  className="group relative bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-cyan-900/20 hover:shadow-cyan-600/30 overflow-hidden"
+                >
+                  <span className="relative flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"></path></svg>
+                    Add Task
+                  </span>
+                </button>
               </div>
 
-              <button
-                onClick={() => setModalOpen(true)}
-                className="group relative bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-cyan-900/20 hover:shadow-cyan-600/30 overflow-hidden"
-              >
-                <span className="relative flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"></path></svg>
-                  Add Task
-                </span>
-              </button>
-            </div>
+              {/* Table */}
+              <div className="overflow-auto custom-scrollbar border border-zinc-800/60 rounded-xl relative max-h-[600px]">
+                {isLoading ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/50 backdrop-blur-sm z-20">
+                    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                    <div className="text-xs font-medium text-blue-400 animate-pulse">Syncing data...</div>
+                  </div>
+                ) : null}
 
-            {/* Table */}
-            <div className="overflow-auto custom-scrollbar border border-zinc-800/60 rounded-xl relative max-h-[600px]">
-              {isLoading ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/50 backdrop-blur-sm z-20">
-                  <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-                  <div className="text-xs font-medium text-blue-400 animate-pulse">Syncing data...</div>
-                </div>
-              ) : null}
-
-              {projects.length === 0 && !isLoading ? (
-                <div className="flex flex-col items-center justify-center min-h-[200px] text-zinc-500 gap-3 p-6">
-                  {isError ? (
-                    <>
-                      <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
-                        <svg className="w-7 h-7 text-rose-500/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
-                      </div>
-                      <span className="text-sm font-semibold text-zinc-300">Chưa kết nối Google Sheet</span>
-                      <span className="text-[11px] text-zinc-500 text-center max-w-[320px] leading-relaxed">
-                        Tab <span className="text-blue-400 font-mono font-semibold">{activeTab}</span> chưa có dữ liệu.<br />
-                        Share sheet cho <span className="text-zinc-300 font-mono text-[10px]">poptech-pm@poptech-pm.iam.gserviceaccount.com</span> rồi F5 lại.
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-14 h-14 rounded-2xl bg-zinc-800/50 border border-zinc-700/30 flex items-center justify-center">
-                        <svg className="w-7 h-7 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                      </div>
-                      <span className="text-sm font-semibold text-zinc-400">Tab <span className="text-blue-400">{activeTab}</span> chưa có task nào</span>
-                      <span className="text-[11px] text-zinc-600">Bấm <span className="text-white font-semibold">+ Add Task</span> để thêm task đầu tiên</span>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <table className="min-w-full text-xs text-left whitespace-nowrap border-collapse">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="text-zinc-400 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 backdrop-blur-md border-b border-blue-700/30 shadow-sm shadow-blue-900/10">
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">TASK ID</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase min-w-[200px]">DETAIL TASK</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">PRIORITY</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">MANDAY EST</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">STATUS</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">START DATE</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">ASSIGNED</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">SUPPORT</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">KPI RATIO</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">SKILL SOLUTION</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">SKILL VENDOR</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">TICKET ID</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">REMARK</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">SEND</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">END DATE EST</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">MD ACTUAL</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">END ACTUAL</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">DAYS LATE</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">KPI BASE</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">KPI PERFORM</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">KPI OVERTIME</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">KPI FINAL</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">SUB ID</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">ROOT TASKS</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">NOTES</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">WEEK EST</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">MONTH EST</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">WEEK ACTUAL</th>
-                      <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">MONTH ACTUAL</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/60">
-                    {projects.map((p, idx) => (
-                      <React.Fragment key={idx}>
-                        <tr
-                          key={idx}
-                          className={`transition-colors duration-150 border-b border-zinc-800/30 ${p.isHeader ? 
-                            p.headerType === 'phase' ? 'bg-amber-200 text-black' :
-                              p.headerType === 'issue' || p.headerType === 'majorTask' ? 'bg-green-300 text-black' :
-                                // majorTask (số la mã)
-                                ''
-                            : 'hover:bg-zinc-800/40' // Dòng task nhỏ bình thường
-                            }`}
-                        >
-                          {p.isHeader && (p.headerType === 'majorTask' || p.headerType === 'issue') ? (
-                            <td colSpan={2} className="px-4 py-2.5 font-bold text-black text-[13px] uppercase tracking-wider">
-                              {p.taskId} {p.detailTask.toUpperCase()}
-                            </td>
-                          ) : (
-                            <>
-                              <td className={`px-4 py-2.5 font-mono text-[11px] ${p.isHeader ? 'text-black' : 'text-zinc-400'}`}>
-                                <div className="flex items-center gap-2"><span>{p.taskId}</span></div>
+                {projects.length === 0 && !isLoading ? (
+                  <div className="flex flex-col items-center justify-center min-h-[200px] text-zinc-500 gap-3 p-6">
+                    {isError ? (
+                      <>
+                        <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                          <svg className="w-7 h-7 text-rose-500/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                        </div>
+                        <span className="text-sm font-semibold text-zinc-300">Chưa kết nối Google Sheet</span>
+                        <span className="text-[11px] text-zinc-500 text-center max-w-[320px] leading-relaxed">
+                          Tab <span className="text-blue-400 font-mono font-semibold">{activeTab}</span> chưa có dữ liệu.<br />
+                          Share sheet cho <span className="text-zinc-300 font-mono text-[10px]">poptech-pm@poptech-pm.iam.gserviceaccount.com</span> rồi F5 lại.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-14 h-14 rounded-2xl bg-zinc-800/50 border border-zinc-700/30 flex items-center justify-center">
+                          <svg className="w-7 h-7 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        </div>
+                        <span className="text-sm font-semibold text-zinc-400">Tab <span className="text-blue-400">{activeTab}</span> chưa có task nào</span>
+                        <span className="text-[11px] text-zinc-600">Bấm <span className="text-white font-semibold">+ Add Task</span> để thêm task đầu tiên</span>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <table className="min-w-full text-xs text-left whitespace-nowrap border-collapse">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="text-zinc-400 bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 backdrop-blur-md border-b border-blue-700/30 shadow-sm shadow-blue-900/10">
+                        <th className="px-2 py-3 w-10"></th>{/* Drag Handle */}
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">TASK ID</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase min-w-[200px]">DETAIL TASK</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">PRIORITY</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">MANDAY EST</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">STATUS</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">START DATE</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">ASSIGNED</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">SUPPORT</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">KPI RATIO</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">SKILL SOLUTION</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">SKILL VENDOR</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">TICKET ID</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">REMARK</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">SEND</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">END DATE EST</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">MD ACTUAL</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">END ACTUAL</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">DAYS LATE</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">KPI BASE</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">KPI PERFORM</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">KPI OVERTIME</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">KPI FINAL</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">SUB ID</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">ROOT TASKS</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">NOTES</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">WEEK EST</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">MONTH EST</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">WEEK ACTUAL</th>
+                        <th className="px-4 py-3 font-semibold tracking-wider text-[10px] uppercase">MONTH ACTUAL</th>
+                      </tr>
+                    </thead>
+                    <SortableContext items={projects.map(p => p.originalIndex)}>
+                      <tbody className="divide-y divide-zinc-800/60">
+                        {projects.map((p, idx) => (
+                          <SortableRow p={p} idx={idx} key={`${p.originalIndex}-${idx}`}>
+                            {p.isHeader ? ( // Nếu là header, không render cột kéo thả và các cột con
+                              <td colSpan={p.headerType === 'majorTask' || p.headerType === 'issue' ? 3 : 29} className={`px-4 py-2.5 font-bold text-black text-[13px] uppercase tracking-wider ${p.headerType === 'phase' ? 'bg-amber-200' : 'bg-green-300'}`}>
+                                {p.taskId} {p.detailTask.toUpperCase()}
                               </td>
-                              <td className={`px-4 py-2.5 ${p.isHeader ? 'font-bold text-black text-[13px] uppercase tracking-wider' : 'font-medium text-white'}`}>
-                                {p.isHeader ? p.detailTask.toUpperCase() : p.detailTask}
-                              </td>
-                            </>
-                          )}
-                          <td className="px-4 py-2.5">
-                            {p.priority && (
-                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${p.priority === 'High' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-                                : p.priority === 'Normal' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                                }`}>{p.priority}</span>
+                            ) : (
+                              <>
+                                <td className={`px-4 py-2.5 font-mono text-[11px] text-zinc-400`}>
+                                  <div className="flex items-center gap-2"><span>{p.taskId}</span></div>
+                                </td>
+                                <td className={`px-4 py-2.5 font-medium text-white`}>
+                                  {p.detailTask}
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  {p.priority && (
+                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${p.priority === 'High' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                                      : p.priority === 'Normal' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                        : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                      }`}>{p.priority}</span>
+                                  )}
+                                </td>
+                                <td className={`px-4 py-2.5 text-emerald-200`}>{p.mandayEst}</td>
+                                <td className="px-4 py-2.5">
+                                  {p.status && (
+                                    <span className="flex items-center gap-1.5">
+                                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${p.status === 'Done' ? 'bg-cyan-400' : 'bg-amber-400'}`}></span>
+                                      <span className={`${p.status === 'Done' ? 'text-emerald-200' : p.status === 'To Do' ? 'text-cyan-200' : 'text-amber-200'}`}>{p.status}</span>
+                                    </span>
+                                  )}
+                                </td>
+                                <td className={`px-4 py-2.5 font-mono text-[11px] text-zinc-400`}>{p.startDateEst}</td>
+                                <td className={`px-4 py-2.5 text-white`}>{p.assigned}</td>
+                                <td className={`px-4 py-2.5 text-zinc-400`}>{p.support}</td>
+                                <td className="px-4 py-2.5">{p.kpiRatio}</td>
+                                <td className={`px-4 py-2.5 text-zinc-400`}>{p.skillSolution}</td>
+                                <td className={`px-4 py-2.5 text-zinc-400`}>{p.skillVendor}</td>
+                                <td className="px-4 py-2.5">{p.ticketId}</td>
+                                <td className="px-4 py-2.5 text-zinc-500">{p.remark}</td>
+                                <td className="px-4 py-2.5">{p.send}</td>
+                                <td className={`px-4 py-2.5 font-mono text-[11px] text-zinc-400`}>{p.endDateEst}</td>
+                                <td className={`px-4 py-2.5 text-white`}>{p.mandayActual}</td>
+                                <td className={`px-4 py-2.5 font-mono text-[11px] text-zinc-400`}>{p.endDateActual}</td>
+                                <td className="px-4 py-2.5">{p.daysLate}</td>
+                                <td className="px-4 py-2.5">{p.kpiBase}</td>
+                                <td className="px-4 py-2.5">{p.kpiPerform}</td>
+                                <td className="px-4 py-2.5">{p.kpiOvertime}</td>
+                                <td className="px-4 py-2.5">{p.kpiFinal}</td>
+                                <td className="px-4 py-2.5 text-zinc-500">{p.subId}</td>
+                                <td className="px-4 py-2.5 text-zinc-400">{p.rootTasks}</td>
+                                <td className="px-4 py-2.5 text-zinc-500">{p.notes}</td>
+                                <td className={`px-4 py-2.5 text-zinc-400`}>{p.weekEst}</td>
+                                <td className={`px-4 py-2.5 text-zinc-400`}>{p.monthEst}</td>
+                                <td className={`px-4 py-2.5 text-white`}>{p.weekActual}</td>
+                                <td className={`px-4 py-2.5 text-white`}>{p.monthActual}</td>
+                              </>
                             )}
-                          </td>
-                          <td className={`px-4 py-2.5 ${p.isHeader ? 'text-black font-bold' : 'text-emerald-200'}`}>{p.mandayEst}</td>
-                          <td className="px-4 py-2.5">
-                            {p.status && (
-                              <span className="flex items-center gap-1.5">
-                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${p.status === 'Done' ? 'bg-emerald-400' : p.status === 'To Do' ? 'bg-cyan-400' : 'bg-amber-400'}`}></span>
-                                <span className={`${p.status === 'Done' ? 'text-emerald-200' : p.status === 'To Do' ? 'text-cyan-200' : 'text-amber-200'}`}>{p.status}</span>
-                              </span>
-                            )}
-                          </td>
-                          <td className={`px-4 py-2.5 font-mono text-[11px] ${p.isHeader ? 'text-black' : 'text-zinc-400'}`}>{p.startDateEst}</td>
-                          <td className={`px-4 py-2.5 ${p.isHeader ? 'text-black' : 'text-white'}`}>{p.assigned}</td>
-                          <td className={`px-4 py-2.5 ${p.isHeader ? 'text-black' : 'text-zinc-400'}`}>{p.support}</td>
-                          <td className="px-4 py-2.5">{p.kpiRatio}</td>
-                          <td className={`px-4 py-2.5 ${p.isHeader ? 'text-black' : 'text-zinc-400'}`}>{p.skillSolution}</td>
-                          <td className={`px-4 py-2.5 ${p.isHeader ? 'text-black' : 'text-zinc-400'}`}>{p.skillVendor}</td>
-                          <td className="px-4 py-2.5">{p.ticketId}</td>
-                          <td className="px-4 py-2.5 text-zinc-500">{p.remark}</td>
-                          <td className="px-4 py-2.5">{p.send}</td>
-                          <td className={`px-4 py-2.5 font-mono text-[11px] ${p.isHeader ? 'text-black' : 'text-zinc-400'}`}>{p.endDateEst}</td>
-                          <td className={`px-4 py-2.5 ${p.isHeader ? 'text-black' : 'text-white'}`}>{p.mandayActual}</td>
-                          <td className={`px-4 py-2.5 font-mono text-[11px] ${p.isHeader ? 'text-black' : 'text-zinc-400'}`}>{p.endDateActual}</td>
-                          <td className="px-4 py-2.5">{p.daysLate}</td>
-                          <td className="px-4 py-2.5">{p.kpiBase}</td>
-                          <td className="px-4 py-2.5">{p.kpiPerform}</td>
-                          <td className="px-4 py-2.5">{p.kpiOvertime}</td>
-                          <td className="px-4 py-2.5">{p.kpiFinal}</td>
-                          <td className="px-4 py-2.5 text-zinc-500">{p.subId}</td>
-                          <td className="px-4 py-2.5 text-zinc-400">{p.rootTasks}</td>
-                          <td className="px-4 py-2.5 text-zinc-500">{p.notes}</td>
-                          <td className={`px-4 py-2.5 ${p.isHeader ? 'text-black' : 'text-zinc-400'}`}>{p.weekEst}</td>
-                          <td className={`px-4 py-2.5 ${p.isHeader ? 'text-black' : 'text-zinc-400'}`}>{p.monthEst}</td>
-                          <td className={`px-4 py-2.5 ${p.isHeader ? 'text-black' : 'text-white'}`}>{p.weekActual}</td>
-                          <td className={`px-4 py-2.5 ${p.isHeader ? 'text-black' : 'text-white'}`}>{p.monthActual}</td>
-                        </tr>
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+                          </SortableRow>
+                        ))}
+                      </tbody>
+                    </SortableContext>
+                  </table>
+                )}
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </DndContext>
 
-
+      {/* Component cho một dòng task, hỗ trợ kéo thả */}
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 8px;
@@ -417,17 +553,40 @@ export default function Page() {
         isOpen={isModalOpen}
         onClose={() => setModalOpen(false)}
         activeTab={activeTab}
+        parentTasks={parentTasks} // Truyền danh sách task cha vào modal
+        assignees={assignees}
+        supporters={supporters}
         onSuccess={() => {
           // Gây render lại component hoặc load lại danh sách
-          setIsLoading(true);
-          fetch(`/api/projects?tab=${encodeURIComponent(activeTab)}`)
-            .then(res => res.json())
-            .then(resData => {
-              if (resData.success) setProjects(resData.data);
-            })
-            .finally(() => setIsLoading(false));
+          loadProjects();
         }}
       />
     </>
   );
 }
+
+// Component cho một tab có thể thả vào
+const DroppableTab = ({ id, activeTab, onClick }: { id: string, activeTab: string, onClick: () => void }) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `tab-${id}`,
+  });
+
+  const isMasterPlan = id === '__masterplan__';
+  const label = isMasterPlan ? 'Master Plan' : id;
+  const isActive = activeTab === id;
+
+  const baseClasses = "px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300";
+  const activeClasses = "bg-gradient-to-b from-zinc-700 to-zinc-800 text-white shadow-md border border-zinc-600/50";
+  const inactiveClasses = "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 border border-transparent";
+  const overClasses = isOver ? "outline-2 outline-dashed outline-blue-500 scale-105" : "";
+
+  return (
+    <button
+      ref={setNodeRef}
+      onClick={onClick}
+      className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses} ${overClasses}`}
+    >
+      {label}
+    </button>
+  );
+};
