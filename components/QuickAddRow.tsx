@@ -169,18 +169,13 @@ export default function QuickAddRow({ usersList, onSave, onCancel }: QuickAddRow
                     />
 
                     {/* KPI Ratio */}
-                    <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                            <span className="text-emerald-500 font-bold text-[10px]">KPI</span>
-                        </div>
-                        <input
-                            value={kpiRatio}
-                            onChange={e => setKpiRatio(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="Ratio"
-                            className="w-[84px] pl-8 pr-2 bg-emerald-500/10 border border-emerald-500/30 focus:border-emerald-500 rounded-md py-1.5 text-sm text-emerald-100 outline-none placeholder:text-emerald-500/50 transition-colors"
-                        />
-                    </div>
+                    <input
+                        value={kpiRatio}
+                        onChange={e => setKpiRatio(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="KPI Ratio"
+                        className="w-20 bg-zinc-900 border border-zinc-700 focus:border-blue-500 rounded-md px-2 py-1.5 text-sm text-white outline-none placeholder:text-zinc-600 transition-colors"
+                    />
 
                     {/* Skill Solution */}
                     <select

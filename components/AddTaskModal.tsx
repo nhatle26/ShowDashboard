@@ -186,44 +186,41 @@ export default function AddTaskModal({ isOpen, onClose, activeTab, parentTasks, 
                             />
                         </div>
                         <div>
-                            <label className="block text-xs text-emerald-400 mb-1 font-semibold">KPI Ratio</label>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <span className="text-emerald-500 font-bold text-xs">%</span>
-                                </div>
-                                <input
-                                    value={kpiRatio}
-                                    onChange={e => setKpiRatio(e.target.value)}
-                                    placeholder="vd: 1.0, 1.5"
-                                    className="w-full pl-8 p-2 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-100 text-sm focus:border-emerald-500 focus:outline-none placeholder:text-emerald-500/50"
-                                />
+                            <label className="block text-xs text-zinc-400 mb-1">KPI Ratio</label>
+                            <input
+                                value={kpiRatio}
+                                onChange={e => setKpiRatio(e.target.value)}
+                                className="w-full p-2 rounded bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-blue-500 focus:outline-none"
+                                placeholder="vd: 1.0, 1.5"
+                            />
+                        </div>
+                        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs text-zinc-400 mb-1">Skill Solution</label>
+                                <select
+                                    value={skillSolution}
+                                    onChange={handleSkillSolutionChange}
+                                    className="w-full p-2 rounded bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-blue-500 focus:outline-none"
+                                >
+                                    <option value="">-- Chọn --</option>
+                                    {vendorSolutions.map((solution, idx) => (
+                                        <option key={idx} value={solution.name}>{solution.name}</option>
+                                    ))}
+                                </select>
                             </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs text-zinc-400 mb-1">Skill Solution</label>
-                            <select
-                                value={skillSolution}
-                                onChange={handleSkillSolutionChange}
-                                className="w-full p-2 rounded bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-blue-500 focus:outline-none"
-                            >
-                                <option value="">-- Chọn --</option>
-                                {vendorSolutions.map((solution, idx) => (
-                                    <option key={idx} value={solution.name}>{solution.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs text-zinc-400 mb-1">Skill Vendor</label>
-                            <select
-                                value={skillVendor}
-                                onChange={e => setSkillVendor(e.target.value)}
-                                className="w-full p-2 rounded bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-blue-500 focus:outline-none"
-                            >
-                                <option value="">-- Chọn --</option>
-                                {availableVendors.map((vendor, idx) => (
-                                    <option key={idx} value={vendor}>{vendor}</option>
-                                ))}
-                            </select>
+                            <div>
+                                <label className="block text-xs text-zinc-400 mb-1">Skill Vendor</label>
+                                <select
+                                    value={skillVendor}
+                                    onChange={e => setSkillVendor(e.target.value)}
+                                    className="w-full p-2 rounded bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-blue-500 focus:outline-none"
+                                >
+                                    <option value="">-- Chọn --</option>
+                                    {availableVendors.map((vendor, idx) => (
+                                        <option key={idx} value={vendor}>{vendor}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-xs text-zinc-400 mb-1">Ticket ID</label>
