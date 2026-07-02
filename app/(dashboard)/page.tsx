@@ -91,6 +91,7 @@ export default function Page() {
   // State để quản lý dữ liệu và modal
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [usersList, setUsersList] = useState<string[]>([]);
+  const [vendorSolutions, setVendorSolutions] = useState<{name: string, vendors: string[]}[]>([]);
   const [isModalOpen, setModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
@@ -245,7 +246,19 @@ export default function Page() {
         console.error("Failed to fetch users", e);
       }
     };
+    
+    const fetchVendors = async () => {
+      try {
+        const res = await fetch('/api/vendors');
+        if (res.ok) {
+           const data = await res.json();
+           if (data.solutions) setVendorSolutions(data.solutions);
+        }
+      } catch (e) { console.error("Failed to fetch vendors", e); }
+    };
+    
     fetchUsers();
+    fetchVendors();
   }, []);
 
   useEffect(() => {
@@ -579,15 +592,23 @@ export default function Page() {
                                   <td className={`px-4 py-2.5 font-medium text-white`}>
                                     {p.detailTask}
                                   </td>
-                                  {/* Priority badge */}
+                                  {/* Priority Dropdown */}
                                   <td className="px-4 py-2.5">
-                                    {p.priority && (
-                                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${p.priority === 'High' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-                                          : p.priority === 'Critical' ? 'bg-red-500/15 text-red-300 border-red-500/30'
-                                            : p.priority === 'Low' ? 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30'
-                                              : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                                        }`}>{p.priority}</span>
-                                    )}
+                                    <select
+                                      value={p.priority || 'Normal'}
+                                      onChange={e => handleCellChange(p, 'priority', e.target.value)}
+                                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold border outline-none cursor-pointer appearance-none ${
+                                        p.priority === 'High' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                                        : p.priority === 'Critical' ? 'bg-red-500/15 text-red-300 border-red-500/30'
+                                        : p.priority === 'Low' ? 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30'
+                                        : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                      }`}
+                                    >
+                                      <option value="Normal" className="bg-zinc-800 text-white">Normal</option>
+                                      <option value="High" className="bg-zinc-800 text-white">High</option>
+                                      <option value="Critical" className="bg-zinc-800 text-white">Critical</option>
+                                      <option value="Low" className="bg-zinc-800 text-white">Low</option>
+                                    </select>
                                   </td>
                                   <td className="px-2 py-1.5 text-emerald-200">
                                     <input
@@ -597,20 +618,31 @@ export default function Page() {
                                       className="w-16 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 text-[11px] text-emerald-200 outline-none"
                                     />
                                   </td>
-                                  {/* Status badge */}
-                                  <td className="px-4 py-2.5">
-                                    {p.status && (
-                                      <span className="flex items-center gap-1.5">
-                                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${p.status === 'Done' ? 'bg-emerald-400'
-                                            : p.status === 'In Progress' ? 'bg-amber-400'
-                                              : p.status === 'Blocked' ? 'bg-red-400'
-                                                : 'bg-cyan-400'}`}></span>
-                                        <span className={`${p.status === 'Done' ? 'text-emerald-200'
-                                            : p.status === 'In Progress' ? 'text-amber-200'
-                                              : p.status === 'Blocked' ? 'text-red-200'
-                                                : 'text-cyan-200'}`}>{p.status}</span>
-                                      </span>
-                                    )}
+                                  {/* Status Dropdown */}
+                                  <td className="px-4 py-2.5 flex items-center h-full">
+                                      <span className={`w-2 h-2 rounded-full flex-shrink-0 mr-1.5 ${
+                                        p.status === 'Done' ? 'bg-emerald-400'
+                                        : p.status === 'In Progress' ? 'bg-amber-400'
+                                        : p.status === 'Blocked' ? 'bg-red-400'
+                                        : 'bg-cyan-400'
+                                      }`}></span>
+                                      <select
+                                        value={p.status || 'In Progress'}
+                                        onChange={e => handleCellChange(p, 'status', e.target.value)}
+                                        className={`bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none appearance-none cursor-pointer text-xs ${
+                                          p.status === 'Done' ? 'text-emerald-200'
+                                          : p.status === 'In Progress' ? 'text-amber-200'
+                                          : p.status === 'Blocked' ? 'text-red-200'
+                                          : 'text-cyan-200'
+                                        }`}
+                                      >
+                                        <option value="In Progress" className="bg-zinc-800 text-white">In Progress</option>
+                                        <option value="Done" className="bg-zinc-800 text-white">Done</option>
+                                        <option value="Cancel" className="bg-zinc-800 text-white">Cancel</option>
+                                        <option value="Waiting" className="bg-zinc-800 text-white">Waiting</option>
+                                        <option value="Rework" className="bg-zinc-800 text-white">Rework</option>
+                                        <option value="Blocked" className="bg-zinc-800 text-white">Blocked</option>
+                                      </select>
                                   </td>
                                   <td className="px-2 py-1.5 font-mono text-[11px] text-zinc-400">
                                     <input type="text" value={p.startDateEst} onChange={e => handleCellChange(p, 'startDateEst', e.target.value)}
@@ -635,8 +667,29 @@ export default function Page() {
                                     </select>
                                   </td>
                                   <td className="px-2 py-1.5">{p.kpiRatio}</td>
-                                  <td className="px-2 py-1.5 text-zinc-400">{p.skillSolution}</td>
-                                  <td className="px-2 py-1.5 text-zinc-400">{p.skillVendor}</td>
+                                  <td className="px-2 py-1.5 text-zinc-400">
+                                    <select value={p.skillSolution || ''} onChange={e => {
+                                        handleCellChange(p, 'skillSolution', e.target.value);
+                                        handleCellChange(p, 'skillVendor', ''); // Reset vendor when solution changes
+                                      }}
+                                      className="w-24 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none appearance-none cursor-pointer text-[11px]"
+                                    >
+                                      <option value="" className="bg-zinc-800 text-white">Select</option>
+                                      {vendorSolutions.map((solution, idx) => (
+                                        <option key={idx} value={solution.name} className="bg-zinc-800 text-white">{solution.name}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td className="px-2 py-1.5 text-zinc-400">
+                                    <select value={p.skillVendor || ''} onChange={e => handleCellChange(p, 'skillVendor', e.target.value)}
+                                      className="w-24 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none appearance-none cursor-pointer text-[11px]"
+                                    >
+                                      <option value="" className="bg-zinc-800 text-white">Select</option>
+                                      {(vendorSolutions.find(s => s.name === p.skillSolution)?.vendors || []).map((vendor, idx) => (
+                                        <option key={idx} value={vendor} className="bg-zinc-800 text-white">{vendor}</option>
+                                      ))}
+                                    </select>
+                                  </td>
                                   <td className="px-2 py-1.5">{p.ticketId}</td>
                                   <td className="px-2 py-1.5 text-zinc-400">{p.remark}</td>
                                   <td className="px-2 py-1.5">{p.send}</td>
