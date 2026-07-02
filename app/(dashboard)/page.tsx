@@ -382,7 +382,7 @@ export default function Page() {
   // Handler khi QuickAddRow lưu task mới (chèn ngay bên dưới task đang chọn)
   const handleQuickAddSave = useCallback((afterTask: ProjectItem, data: {
     detailTask: string; priority: string; mandayEst: string; assigned: string;
-    support: string; status: string; startDateEst: string; skillSolution: string;
+    support: string; status: string; startDateEst: string; kpiRatio: string; skillSolution: string;
     skillVendor: string; ticketId: string;
   }) => {
     setProjects(prev => {
@@ -407,7 +407,7 @@ export default function Page() {
         support: data.support,
         status: data.status,
         startDateEst: data.startDateEst,
-        kpiRatio: "",
+        kpiRatio: data.kpiRatio,
         skillSolution: data.skillSolution,
         skillVendor: data.skillVendor,
         ticketId: data.ticketId,

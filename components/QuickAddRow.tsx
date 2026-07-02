@@ -12,6 +12,7 @@ interface QuickAddRowProps {
         support: string;
         status: string;
         startDateEst: string;
+        kpiRatio: string;
         skillSolution: string;
         skillVendor: string;
         ticketId: string;
@@ -27,6 +28,7 @@ export default function QuickAddRow({ usersList, onSave, onCancel }: QuickAddRow
     const [support, setSupport] = useState("");
     const [status, setStatus] = useState("In Progress");
     const [startDateEst, setStartDateEst] = useState("");
+    const [kpiRatio, setKpiRatio] = useState("");
     const [skillSolution, setSkillSolution] = useState("");
     const [skillVendor, setSkillVendor] = useState("");
     const [ticketId, setTicketId] = useState("");
@@ -69,6 +71,7 @@ export default function QuickAddRow({ usersList, onSave, onCancel }: QuickAddRow
             support,
             status,
             startDateEst,
+            kpiRatio,
             skillSolution,
             skillVendor,
             ticketId
@@ -164,6 +167,20 @@ export default function QuickAddRow({ usersList, onSave, onCancel }: QuickAddRow
                         onKeyDown={handleKeyDown}
                         className="bg-zinc-900 border border-zinc-700 focus:border-blue-500 rounded-md px-2 py-1.5 text-sm text-white outline-none transition-colors"
                     />
+
+                    {/* KPI Ratio */}
+                    <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                            <span className="text-emerald-500 font-bold text-[10px]">KPI</span>
+                        </div>
+                        <input
+                            value={kpiRatio}
+                            onChange={e => setKpiRatio(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder="Ratio"
+                            className="w-[84px] pl-8 pr-2 bg-emerald-500/10 border border-emerald-500/30 focus:border-emerald-500 rounded-md py-1.5 text-sm text-emerald-100 outline-none placeholder:text-emerald-500/50 transition-colors"
+                        />
+                    </div>
 
                     {/* Skill Solution */}
                     <select

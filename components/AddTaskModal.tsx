@@ -20,6 +20,7 @@ export default function AddTaskModal({ isOpen, onClose, activeTab, parentTasks, 
     const [support, setSupport] = useState("");
     const [status, setStatus] = useState("In Progress");
     const [startDateEst, setStartDateEst] = useState("");
+    const [kpiRatio, setKpiRatio] = useState("");
     const [skillSolution, setSkillSolution] = useState("");
     const [skillVendor, setSkillVendor] = useState("");
     const [ticketId, setTicketId] = useState("");
@@ -64,6 +65,7 @@ export default function AddTaskModal({ isOpen, onClose, activeTab, parentTasks, 
                 support,
                 status,
                 startDateEst,
+                kpiRatio,
                 skillSolution,
                 skillVendor,
                 ticketId,
@@ -82,6 +84,7 @@ export default function AddTaskModal({ isOpen, onClose, activeTab, parentTasks, 
         setSupport("");
         setStatus("In Progress");
         setStartDateEst("");
+        setKpiRatio("");
         setSkillSolution("");
         setSkillVendor("");
         setTicketId("");
@@ -181,6 +184,20 @@ export default function AddTaskModal({ isOpen, onClose, activeTab, parentTasks, 
                                 onChange={e => setStartDateEst(e.target.value)}
                                 className="w-full p-2 rounded bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-blue-500 focus:outline-none"
                             />
+                        </div>
+                        <div>
+                            <label className="block text-xs text-emerald-400 mb-1 font-semibold">KPI Ratio</label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <span className="text-emerald-500 font-bold text-xs">%</span>
+                                </div>
+                                <input
+                                    value={kpiRatio}
+                                    onChange={e => setKpiRatio(e.target.value)}
+                                    placeholder="vd: 1.0, 1.5"
+                                    className="w-full pl-8 p-2 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-100 text-sm focus:border-emerald-500 focus:outline-none placeholder:text-emerald-500/50"
+                                />
+                            </div>
                         </div>
                         <div>
                             <label className="block text-xs text-zinc-400 mb-1">Skill Solution</label>
