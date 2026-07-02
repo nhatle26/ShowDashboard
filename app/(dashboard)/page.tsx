@@ -590,7 +590,8 @@ export default function Page() {
                                     <div className="flex items-center gap-2"><span>{p.taskId}</span></div>
                                   </td>
                                   <td className={`px-4 py-2.5 font-medium text-white`}>
-                                    {p.detailTask}
+                                    <input type="text" value={p.detailTask || ''} onChange={e => handleCellChange(p, 'detailTask', e.target.value)}
+                                      className="w-full min-w-[200px] bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none" />
                                   </td>
                                   {/* Priority Dropdown */}
                                   <td className="px-4 py-2.5">
@@ -666,7 +667,10 @@ export default function Page() {
                                       ))}
                                     </select>
                                   </td>
-                                  <td className="px-2 py-1.5">{p.kpiRatio}</td>
+                                  <td className="px-2 py-1.5">
+                                    <input type="text" value={p.kpiRatio || ''} onChange={e => handleCellChange(p, 'kpiRatio', e.target.value)}
+                                      className="w-16 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none text-white" />
+                                  </td>
                                   <td className="px-2 py-1.5 text-zinc-400">
                                     <select value={p.skillSolution || ''} onChange={e => {
                                         handleCellChange(p, 'skillSolution', e.target.value);
@@ -690,32 +694,70 @@ export default function Page() {
                                       ))}
                                     </select>
                                   </td>
-                                  <td className="px-2 py-1.5">{p.ticketId}</td>
-                                  <td className="px-2 py-1.5 text-zinc-400">{p.remark}</td>
-                                  <td className="px-2 py-1.5">{p.send}</td>
+                                  <td className="px-2 py-1.5">
+                                    <input type="text" value={p.ticketId || ''} onChange={e => handleCellChange(p, 'ticketId', e.target.value)}
+                                      className="w-20 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none text-white" />
+                                  </td>
+                                  <td className="px-2 py-1.5 text-zinc-400">
+                                    <input type="text" value={p.remark || ''} onChange={e => handleCellChange(p, 'remark', e.target.value)}
+                                      className="w-32 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none text-zinc-400" />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input type="text" value={p.send || ''} onChange={e => handleCellChange(p, 'send', e.target.value)}
+                                      className="w-16 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none text-white" />
+                                  </td>
                                   <td className="px-2 py-1.5 font-mono text-[11px] text-zinc-400">
                                     <input type="text" value={p.endDateEst} onChange={e => handleCellChange(p, 'endDateEst', e.target.value)}
                                       className="w-24 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none" />
                                   </td>
-                                  <td className="px-2 py-1.5 text-white">{p.mandayActual}</td>
-                                  <td className="px-2 py-1.5 font-mono text-[11px] text-zinc-400">{p.endDateActual}</td>
-                                  <td className="px-2 py-1.5">{p.daysLate}</td>
-                                  <td className="px-2 py-1.5">{p.kpiBase}</td>
-                                  <td className="px-2 py-1.5">{p.kpiPerform}</td>
-                                  <td className="px-2 py-1.5">{p.kpiOvertime}</td>
-                                  <td className="px-2 py-1.5">{p.kpiFinal}</td>
-                                  <td className="px-2 py-1.5 text-zinc-400">{p.subId}</td>
-                                  <td className="px-2 py-1.5 text-zinc-400">{p.rootTasks}</td>
+                                  <td className="px-2 py-1.5 text-white">
+                                    <input type="text" value={p.mandayActual || ''} onChange={e => handleCellChange(p, 'mandayActual', e.target.value)}
+                                      className="w-16 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none text-white" />
+                                  </td>
+                                  <td className="px-2 py-1.5 font-mono text-[11px] text-zinc-400">
+                                    <input type="text" value={p.endDateActual || ''} onChange={e => handleCellChange(p, 'endDateActual', e.target.value)}
+                                      className="w-24 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none text-zinc-400" />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input type="text" value={p.daysLate || ''} onChange={e => handleCellChange(p, 'daysLate', e.target.value)}
+                                      className="w-16 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none text-white" />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input type="text" value={p.kpiBase || ''} onChange={e => handleCellChange(p, 'kpiBase', e.target.value)} className="w-16 bg-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none border border-transparent text-white" />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input type="text" value={p.kpiPerform || ''} onChange={e => handleCellChange(p, 'kpiPerform', e.target.value)} className="w-16 bg-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none border border-transparent text-white" />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input type="text" value={p.kpiOvertime || ''} onChange={e => handleCellChange(p, 'kpiOvertime', e.target.value)} className="w-16 bg-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none border border-transparent text-white" />
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <input type="text" value={p.kpiFinal || ''} onChange={e => handleCellChange(p, 'kpiFinal', e.target.value)} className="w-16 bg-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none border border-transparent text-white" />
+                                  </td>
+                                  <td className="px-2 py-1.5 text-zinc-400">
+                                    <input type="text" value={p.subId || ''} onChange={e => handleCellChange(p, 'subId', e.target.value)} className="w-16 bg-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none border border-transparent text-zinc-400" />
+                                  </td>
+                                  <td className="px-2 py-1.5 text-zinc-400">
+                                    <input type="text" value={p.rootTasks || ''} onChange={e => handleCellChange(p, 'rootTasks', e.target.value)} className="w-24 bg-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none border border-transparent text-zinc-400" />
+                                  </td>
                                   <td className="px-2 py-1.5 text-zinc-400">
                                     <input type="text" value={p.notes} onChange={e => handleCellChange(p, 'notes', e.target.value)}
                                       className="w-32 bg-transparent border border-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none" />
                                   </td>
                                   {activeTab === 'Master Plan' ? (
                                     <>
-                                      <td className="px-2 py-1.5 text-zinc-400">{p.weekEst}</td>
-                                      <td className="px-2 py-1.5 text-zinc-400">{p.monthEst}</td>
-                                      <td className="px-2 py-1.5 text-white">{p.weekActual}</td>
-                                      <td className="px-2 py-1.5 text-white">{p.monthActual}</td>
+                                      <td className="px-2 py-1.5 text-zinc-400">
+                                        <input type="text" value={p.weekEst || ''} onChange={e => handleCellChange(p, 'weekEst', e.target.value)} className="w-16 bg-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none border border-transparent text-zinc-400" />
+                                      </td>
+                                      <td className="px-2 py-1.5 text-zinc-400">
+                                        <input type="text" value={p.monthEst || ''} onChange={e => handleCellChange(p, 'monthEst', e.target.value)} className="w-16 bg-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none border border-transparent text-zinc-400" />
+                                      </td>
+                                      <td className="px-2 py-1.5 text-white">
+                                        <input type="text" value={p.weekActual || ''} onChange={e => handleCellChange(p, 'weekActual', e.target.value)} className="w-16 bg-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none border border-transparent text-white" />
+                                      </td>
+                                      <td className="px-2 py-1.5 text-white">
+                                        <input type="text" value={p.monthActual || ''} onChange={e => handleCellChange(p, 'monthActual', e.target.value)} className="w-16 bg-transparent hover:border-zinc-600 focus:border-blue-500 rounded px-1 py-0.5 outline-none border border-transparent text-white" />
+                                      </td>
                                     </>
                                   ) : (
                                     <td className="px-2 py-1.5 text-zinc-400">
