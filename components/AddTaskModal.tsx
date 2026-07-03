@@ -191,7 +191,7 @@ export default function AddTaskModal({ isOpen, onClose, activeTab, parentTasks, 
                                 value={kpiRatio}
                                 onChange={e => setKpiRatio(e.target.value)}
                                 className="w-full p-2 rounded bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-blue-500 focus:outline-none"
-                                placeholder="vd: 1.0, 1.5"
+                                placeholder="vd: 100/0, 90/10, ..."
                             />
                         </div>
                         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">

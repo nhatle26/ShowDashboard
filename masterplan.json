@@ -1,0 +1,53 @@
+{
+  "success": true,
+  "data": {
+    "overallKpis": {
+      "overallProgress": 58,
+      "totalTasks": 36,
+      "totalMandays": 30,
+      "overdue": 0
+    },
+    "phases": [
+      {
+        "name": "1.Sale/Admin",
+        "taskCount": 2,
+        "doneCount": 0,
+        "overdueCount": 0,
+        "manday": 1,
+        "progress": 0
+      },
+      {
+        "name": "2.Init",
+        "taskCount": 2,
+        "doneCount": 1,
+        "overdueCount": 0,
+        "manday": 8,
+        "progress": 50
+      },
+      {
+        "name": "2.1.Lab/PoC",
+        "taskCount": 16,
+        "doneCount": 10,
+        "overdueCount": 0,
+        "manday": 10,
+        "progress": 63
+      },
+      {
+        "name": "3.Implement",
+        "taskCount": 16,
+        "doneCount": 10,
+        "overdueCount": 0,
+        "manday": 11,
+        "progress": 63
+      },
+      {
+        "name": "4.MA",
+        "taskCount": 0,
+        "doneCount": 0,
+        "overdueCount": 0,
+        "manday": 0,
+        "progress": 0
+      }
+    ]
+  }
+}

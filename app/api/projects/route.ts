@@ -24,9 +24,55 @@ const COLUMNS_MAP_MASTER = [
     "weekEst", "monthEst", "weekActual", "monthActual"
 ];
 
+const normalizeStatus = (status: string = "") =>
+    status.trim().toLowerCase();
+
+const parseDate = (dateStr: string) => {
+    if (!dateStr) return null;
+
+    const date = new Date(dateStr);
+
+    if (isNaN(date.getTime())) return null;
+
+    date.setHours(0, 0, 0, 0);
+
+    return date;
+};
+
+const isRealTask = (task: ProjectItem) => {
+    if (task.isHeader) return false;
+
+    const detail = task.detailTask?.trim() ?? "";
+
+    if (!detail) return false;
+
+    if (detail.includes("[Action Verb]")) return false;
+
+    if (detail.startsWith("Example")) return false;
+
+    return true;
+};
+
+const getTaskIdStart = (tab: string): number => {
+    switch (tab) {
+        case "1.Sale/Admin":
+            return 1;
+        case "2.Init":
+            return 200;
+        case "2.1.LaB/LoC":
+            return 300;
+        case "3.Implement":
+            return 400;
+        case "4.MA":
+            return 500;
+        default:
+            return 1;
+    }
+};
+
 const parseProjectsFromSheet = (rows: SheetRow[], tab: string): ProjectItem[] => {
     const columnsMap = (tab === 'Master' || tab === '__masterplan__') ? COLUMNS_MAP_MASTER : COLUMNS_MAP_DEFAULT;
-    let taskCounter = 1;
+    let taskCounter = getTaskIdStart(tab);
     let currentRootTask = ""; // Biến để lưu task lớn hiện tại
     const parsedRows: ProjectItem[] = [];
 
@@ -56,7 +102,6 @@ const parseProjectsFromSheet = (rows: SheetRow[], tab: string): ProjectItem[] =>
         };
 
         if (isSectionHeaderRow) {
-            taskCounter = 1;
             if (headerType === 'majorTask') {
                 currentRootTask = col0;
             }
@@ -70,7 +115,7 @@ const parseProjectsFromSheet = (rows: SheetRow[], tab: string): ProjectItem[] =>
             taskObj.taskId = col0;
             taskObj.detailTask = col1;
         } else {
-            const currentTaskId = row[0] ? row[0].toString() : taskCounter.toString();
+            const currentTaskId = taskCounter.toString();
             taskCounter++;
             columnsMap.forEach((key, index) => {
                 (taskObj as Record<string, any>)[key] = (row[index] || "").toString().trim();
@@ -110,14 +155,56 @@ export async function GET(request: Request) {
             const phases = valueRanges.map((rangeData, index) => {
                 const phaseName = projectSheetTitles[index];
                 const rows = rangeData.values || [];
-                const phaseTasks = parseProjectsFromSheet(rows, phaseName).filter(p => !p.isHeader);
+                const phaseTasks = parseProjectsFromSheet(rows, phaseName).filter(isRealTask);
+
+                const totalTasks = allTasks.length;
+                const totalDone = allTasks.filter(
+                    t => normalizeStatus(t.status) === "done"
+                ).length;
+
+                const totalOverdue = allTasks.filter(task => {
+                    if (!isRealTask(task)) return false;
+
+                    if (normalizeStatus(task.status) === "done") return false;
+
+                    const endDate = parseDate(task.endDateEst);
+
+                    if (!endDate) return false;
+
+                    return endDate < today;
+                }).length;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                console.log("==========", phaseName, "==========");
+
+                phaseTasks.forEach(task => {
+                    console.log({
+                        task: task.detailTask,
+                        status: task.status,
+                        endDate: task.endDateEst,
+                        overdue:
+                            normalizeStatus(task.status) !== "done" &&
+                            parseDate(task.endDateEst) &&
+                            parseDate(task.endDateEst)! < today,
+                    });
+                });
                 allTasks.push(...phaseTasks);
 
-                const doneCount = phaseTasks.filter(t => t.status === 'Done').length;
-                const overdueCount = phaseTasks.filter(p => {
-                    if (p.status === 'Done' || !p.endDateEst) return false;
-                    try { return new Date(p.endDateEst) < new Date(); } catch { return false; }
+                const doneCount = phaseTasks.filter(
+                    t => normalizeStatus(t.status) === "done"
+                ).length;
+
+                const overdueCount = phaseTasks.filter(task => {
+                    if (normalizeStatus(task.status) === "done") return false;
+
+                    const endDate = parseDate(task.endDateEst);
+
+                    if (!endDate) return false;
+
+                    return endDate < today;
                 }).length;
+
                 const manday = phaseTasks.reduce((acc, p) => acc + (parseFloat(p.mandayEst) || 0), 0);
 
                 return {
@@ -130,9 +217,6 @@ export async function GET(request: Request) {
                 };
             });
 
-            const totalTasks = allTasks.length;
-            const totalDone = allTasks.filter(t => t.status === 'Done').length;
-            const totalOverdue = allTasks.filter(p => !p.isHeader && p.status !== 'Done' && p.endDateEst && new Date(p.endDateEst) < new Date()).length;
             const totalMandays = allTasks.reduce((acc, p) => acc + (parseFloat(p.mandayEst) || 0), 0);
 
             const masterData = {
@@ -143,6 +227,7 @@ export async function GET(request: Request) {
                     overdue: totalOverdue,
                 },
                 phases,
+                tasks: allTasks,
             };
 
             return NextResponse.json({ success: true, data: masterData });
