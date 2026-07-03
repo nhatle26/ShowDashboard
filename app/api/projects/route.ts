@@ -59,7 +59,9 @@ const getTaskIdStart = (tab: string): number => {
             return 1;
         case "2.Init":
             return 200;
+        case "2.1.Lab/PoC":
         case "2.1.Lab/LoC":
+        case "2.1.LaB/LoC":
             return 300;
         case "3.Implement":
             return 400;
