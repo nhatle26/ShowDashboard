@@ -159,20 +159,6 @@ export async function GET(request: Request) {
                 const phaseName = projectSheetTitles[index];
                 const rows = rangeData.values || [];
                 const phaseTasks = parseProjectsFromSheet(rows, phaseName).filter(isRealTask);
-
-                console.log("==========", phaseName, "==========");
-
-                phaseTasks.forEach(task => {
-                    console.log({
-                        task: task.detailTask,
-                        status: task.status,
-                        endDate: task.endDateEst,
-                        overdue:
-                            normalizeStatus(task.status) !== "done" &&
-                            parseDate(task.endDateEst) &&
-                            parseDate(task.endDateEst)! < today,
-                    });
-                });
                 allTasks.push(...phaseTasks);
 
                 const doneCount = phaseTasks.filter(

@@ -119,9 +119,13 @@ export default function Page() {
     const doneTasks = tasksOnly.filter(p => p.status === 'Done').length;
     const highPriorityTasks = tasksOnly.filter(p => p.priority === 'High').length;
 
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
     const overdueList = tasksOnly.filter(p => {
-      if (p.status === 'Done' || !p.endDateEst) return false;
-      try { return new Date(p.endDateEst) < new Date(); } catch { return false; }
+      if (p.status && p.status.toLowerCase() === 'done') return false;
+      if (!p.endDateEst) return false;
+      try { return new Date(p.endDateEst) < todayMidnight; } catch { return false; }
     });
 
     const today = new Date();

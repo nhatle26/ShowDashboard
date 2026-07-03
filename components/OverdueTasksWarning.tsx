@@ -11,6 +11,7 @@ const calculateDaysLate = (dateStr: string) => {
     try {
         const endDate = new Date(dateStr);
         const now = new Date();
+        now.setHours(0, 0, 0, 0);
         if (endDate >= now) return 0;
         const diffTime = Math.abs(now.getTime() - endDate.getTime());
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
