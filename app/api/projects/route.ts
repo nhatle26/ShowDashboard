@@ -59,7 +59,7 @@ const getTaskIdStart = (tab: string): number => {
             return 1;
         case "2.Init":
             return 200;
-        case "2.1.LaB/LoC":
+        case "2.1.Lab/LoC":
             return 300;
         case "3.Implement":
             return 400;
@@ -115,12 +115,25 @@ const parseProjectsFromSheet = (rows: SheetRow[], tab: string): ProjectItem[] =>
             taskObj.taskId = col0;
             taskObj.detailTask = col1;
         } else {
-            const currentTaskId = taskCounter.toString();
-            taskCounter++;
+            let currentTaskId = "";
+            if (tab === 'Master' || tab === '__masterplan__') {
+                currentTaskId = col0;
+            } else {
+                currentTaskId = taskCounter.toString();
+                taskCounter++;
+            }
+            
             columnsMap.forEach((key, index) => {
                 (taskObj as Record<string, any>)[key] = (row[index] || "").toString().trim();
             });
-            taskObj.taskId = currentTaskId;
+            
+            // Đối với tab Master, ID thực sự của các task nằm ở cột subId, do col0 chỉ là số thứ tự 1, 2, 3
+            if (tab === 'Master' && taskObj.subId) {
+                taskObj.taskId = taskObj.subId;
+            } else {
+                taskObj.taskId = currentTaskId || col0;
+            }
+
             if (!taskObj.rootTasks) {
                 taskObj.rootTasks = currentRootTask;
             }

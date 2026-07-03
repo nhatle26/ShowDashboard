@@ -35,15 +35,35 @@ const customCollisionDetection: CollisionDetection = (args) => {
   return closestCenter(args);
 };
 
+const getTaskIdStart = (tab: string): number => {
+  switch (tab) {
+      case "1.Sale/Admin":
+          return 1;
+      case "2.Init":
+          return 200;
+      case "2.1.Lab/PoC":
+      case "2.1.LaB/LoC":
+          return 300;
+      case "3.Implement":
+          return 400;
+      case "4.MA":
+          return 500;
+      default:
+          return 1;
+  }
+};
+
 // Helper function to reindex tasks after drag and drop
-function reindexDraggedTasks(reorderedProjects: ProjectItem[], sourceSection: string, destSection: string): ProjectItem[] {
-  let taskCounter = 1;
+function reindexDraggedTasks(reorderedProjects: ProjectItem[], sourceSection: string, destSection: string, activeTab: string): ProjectItem[] {
+  if (activeTab === 'Master Plan' || activeTab === 'Master') {
+    return reorderedProjects; // Không ghi đè Task ID của Master Plan
+  }
+  let taskCounter = getTaskIdStart(activeTab);
   let currentRootTask = "";
   let currentSectionId = "";
 
   return reorderedProjects.map(p => {
     if (p.isHeader) {
-      taskCounter = 1;
       currentSectionId = p.taskId + p.detailTask;
       if (p.headerType === 'majorTask') {
         currentRootTask = p.taskId;
@@ -73,11 +93,13 @@ function reindexDraggedTasks(reorderedProjects: ProjectItem[], sourceSection: st
 }
 
 // Helper function to reindex all tasks after adding a new one
-function reindexAllTasks(projects: ProjectItem[]): ProjectItem[] {
-  let taskCounter = 1;
+function reindexAllTasks(projects: ProjectItem[], activeTab: string): ProjectItem[] {
+  if (activeTab === 'Master Plan' || activeTab === 'Master') {
+    return projects;
+  }
+  let taskCounter = getTaskIdStart(activeTab);
   return projects.map(p => {
     if (p.isHeader) {
-      taskCounter = 1;
       return p;
     } else {
       const newTaskId = taskCounter.toString();
@@ -351,7 +373,7 @@ export default function Page() {
       }
 
       // Auto-update taskId and rootTasks after dragging
-      const updatedProjects = reindexDraggedTasks(reorderedProjects, sourceSection, destSection);
+      const updatedProjects = reindexDraggedTasks(reorderedProjects, sourceSection, destSection, activeTab);
 
       setProjects(updatedProjects);
     }
@@ -424,7 +446,7 @@ export default function Page() {
       };
 
       updated.splice(targetIdx + 1, 0, newTask);
-      return reindexAllTasks(updated);
+      return reindexAllTasks(updated, activeTab);
     });
     setQuickAddAfter(null);
     setHoveredTaskIndex(null);
@@ -892,11 +914,10 @@ export default function Page() {
             updatedProjects.splice(insertIndex, 0, finalNewTask);
 
             // === TỰ ĐỘNG ĐÁNH LẠI SỐ TASK ID CON CHO ĐỒNG BỘ ===
-            return reindexAllTasks(updatedProjects);
+            return reindexAllTasks(updatedProjects, activeTab);
           });
         }}
       />
     </>
   );
 }
-
