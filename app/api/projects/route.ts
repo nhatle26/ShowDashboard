@@ -152,29 +152,13 @@ export async function GET(request: Request) {
             const valueRanges = response.data.valueRanges || [];
             const allTasks: ProjectItem[] = [];
 
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
             const phases = valueRanges.map((rangeData, index) => {
                 const phaseName = projectSheetTitles[index];
                 const rows = rangeData.values || [];
                 const phaseTasks = parseProjectsFromSheet(rows, phaseName).filter(isRealTask);
-
-                const totalTasks = allTasks.length;
-                const totalDone = allTasks.filter(
-                    t => normalizeStatus(t.status) === "done"
-                ).length;
-
-                const totalOverdue = allTasks.filter(task => {
-                    if (!isRealTask(task)) return false;
-
-                    if (normalizeStatus(task.status) === "done") return false;
-
-                    const endDate = parseDate(task.endDateEst);
-
-                    if (!endDate) return false;
-
-                    return endDate < today;
-                }).length;
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
 
                 console.log("==========", phaseName, "==========");
 
@@ -216,6 +200,19 @@ export async function GET(request: Request) {
                     progress: phaseTasks.length > 0 ? Math.round((doneCount / phaseTasks.length) * 100) : 0,
                 };
             });
+
+            const totalTasks = allTasks.length;
+            const totalDone = allTasks.filter(t => normalizeStatus(t.status) === "done").length;
+            
+            const globalToday = new Date();
+            globalToday.setHours(0, 0, 0, 0);
+            const totalOverdue = allTasks.filter(task => {
+                if (!isRealTask(task)) return false;
+                if (normalizeStatus(task.status) === "done") return false;
+                const endDate = parseDate(task.endDateEst);
+                if (!endDate) return false;
+                return endDate < globalToday;
+            }).length;
 
             const totalMandays = allTasks.reduce((acc, p) => acc + (parseFloat(p.mandayEst) || 0), 0);
 
