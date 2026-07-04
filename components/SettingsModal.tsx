@@ -1,14 +1,15 @@
 import React from 'react';
 import { X, Save } from 'lucide-react';
-import { useKPISettings, KPISettings } from '@/hooks/useKPISettings';
+import { KPISettings } from '@/hooks/useKPISettings';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  settings: KPISettings;
+  onSave: (newSettings: KPISettings) => void;
 }
 
-export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { settings, updateSettings } = useKPISettings();
+export default function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps) {
   const [localSettings, setLocalSettings] = React.useState<KPISettings>(settings);
 
   React.useEffect(() => {
@@ -20,7 +21,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   if (!isOpen) return null;
 
   const handleSave = () => {
-    updateSettings(localSettings);
+    onSave(localSettings);
     onClose();
   };
 

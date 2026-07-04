@@ -130,7 +130,7 @@ export default function Page() {
   const [supporters, setSupporters] = useState<string[]>([]);
 
   // Cấu hình KPI Base theo Priority
-  const { settings: kpiSettings, getKpiForPriority } = useKPISettings();
+  const { settings: kpiSettings, getKpiForPriority, updateSettings: updateKpiSettings } = useKPISettings();
   const [isSettingsOpen, setSettingsOpen] = useState(false);
 
   // Lọc danh sách các task cha để truyền vào modal
@@ -492,6 +492,20 @@ export default function Page() {
       <SettingsModal 
         isOpen={isSettingsOpen} 
         onClose={() => setSettingsOpen(false)} 
+        settings={kpiSettings}
+        onSave={(newSettings) => {
+          updateKpiSettings(newSettings);
+          setProjects(prev => prev.map(p => {
+            if (p.isHeader) return p;
+            const md = parseFloat(p.mandayEst);
+            const kpiPerDayStr = newSettings[p.priority as keyof typeof newSettings];
+            const kpiPerDay = parseFloat(kpiPerDayStr || "");
+            if (!isNaN(md) && !isNaN(kpiPerDay)) {
+              return { ...p, kpiBase: (md * kpiPerDay).toString() };
+            }
+            return p;
+          }));
+        }}
       />
       {activeTab !== 'Dashboard' && (
         <>
