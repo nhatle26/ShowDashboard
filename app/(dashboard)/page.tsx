@@ -21,6 +21,9 @@ import { ProjectItem } from "@/types/project";
 import SortableRow from "@/components/SortableRow";
 import DroppableTab from "@/components/DroppableTab";
 import QuickAddRow from "@/components/QuickAddRow";
+import { calculateEndDate } from "@/lib/dateUtils";
+import { useKPISettings } from "@/hooks/useKPISettings";
+import SettingsModal from "@/components/SettingsModal";
 
 // Custom collision detection to handle dragging to tabs
 const customCollisionDetection: CollisionDetection = (args) => {
@@ -124,6 +127,10 @@ export default function Page() {
   // State cho danh sách người thực hiện và hỗ trợ
   const [assignees, setAssignees] = useState<string[]>([]);
   const [supporters, setSupporters] = useState<string[]>([]);
+
+  // Cấu hình KPI Base theo Priority
+  const { settings: kpiSettings, getKpiForPriority } = useKPISettings();
+  const [isSettingsOpen, setSettingsOpen] = useState(false);
 
   // Lọc danh sách các task cha để truyền vào modal
   const parentTasks = useMemo(() => {
@@ -400,9 +407,22 @@ export default function Page() {
       return;
     }
 
-    setProjects(prev => prev.map(p =>
-      p.originalIndex === proj.originalIndex ? { ...p, [field]: value } : p
-    ));
+    setProjects(prev => prev.map(p => {
+      if (p.originalIndex !== proj.originalIndex) return p;
+      const newP = { ...p, [field]: value };
+      
+      // Auto-calculate End Date
+      if (field === 'startDateEst' || field === 'mandayEst') {
+        newP.endDateEst = calculateEndDate(newP.startDateEst, newP.mandayEst);
+      }
+
+      // Auto-assign KPI Base
+      if (field === 'priority') {
+        newP.kpiBase = getKpiForPriority(value, kpiSettings);
+      }
+
+      return newP;
+    }));
   };
 
   // Handler khi QuickAddRow lưu task mới (chèn ngay bên dưới task đang chọn)
@@ -424,6 +444,9 @@ export default function Page() {
         }
       }
 
+      const calculatedEndDate = calculateEndDate(data.startDateEst, data.mandayEst);
+      const calculatedKpi = getKpiForPriority(data.priority, kpiSettings);
+
       const newTask: ProjectItem = {
         taskId: "",
         detailTask: data.detailTask,
@@ -437,8 +460,8 @@ export default function Page() {
         skillSolution: data.skillSolution,
         skillVendor: data.skillVendor,
         ticketId: data.ticketId,
-        remark: "", send: "", endDateEst: "", mandayActual: "",
-        endDateActual: "", daysLate: "", kpiBase: "", kpiPerform: "",
+        remark: "", send: "", endDateEst: calculatedEndDate, mandayActual: "",
+        endDateActual: "", daysLate: "", kpiBase: calculatedKpi, kpiPerform: "",
         kpiOvertime: "", kpiFinal: "", subId: "",
         rootTasks: currentRootTask,
         notes: "", isHeader: false, headerType: null,
@@ -454,6 +477,10 @@ export default function Page() {
 
   return (
     <>
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setSettingsOpen(false)} 
+      />
       {activeTab !== 'Dashboard' && (
         <>
           {/* Row 1: 4 thẻ cũ */}
@@ -822,6 +849,27 @@ export default function Page() {
                     </SortableContext>
                   </table>
                 )}
+              </div>
+              <div className="flex items-center gap-2 mt-4">
+                <button
+                    onClick={handleSync}
+                    className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                  >
+                  <Save size={14} className="mr-1.5" />
+                  Sync to Google Sheets
+                </button>
+
+                <button
+                  onClick={() => setSettingsOpen(true)}
+                  className="flex items-center px-4 py-2 bg-zinc-800 text-zinc-300 text-sm font-medium rounded-lg border border-zinc-700/50 hover:bg-zinc-700 transition-colors shadow-sm"
+                  title="Cấu hình KPI Base"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1.5">
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                  Config KPI
+                </button>
               </div>
             </div>
           </>
