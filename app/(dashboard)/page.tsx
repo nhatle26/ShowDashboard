@@ -853,36 +853,6 @@ export default function Page() {
               </div>
               <div className="flex items-center gap-2 mt-4">
                 <button
-                    onClick={async () => {
-                      if (!confirm("Bạn có chắc muốn lưu đè toàn bộ dữ liệu tab này lên Google Sheets?")) return;
-                      try {
-                        setIsLoading(true);
-                        const res = await fetch("/api/projects/sync", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ tab: activeTab, projects })
-                        });
-                        if (res.ok) {
-                          alert("Đã đồng bộ lên Google Sheets thành công!");
-                          localStorage.removeItem(`draft_${activeTab}`); // Xóa draft local
-                        } else {
-                          const err = await res.json();
-                          alert("Đồng bộ thất bại: " + err.message);
-                        }
-                      } catch (e) {
-                        console.error(e);
-                        alert("Lỗi mạng khi đồng bộ");
-                      } finally {
-                        setIsLoading(false);
-                      }
-                    }}
-                    className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
-                  >
-                  <Save size={14} className="mr-1.5" />
-                  Sync to Google Sheets
-                </button>
-
-                <button
                   onClick={() => setSettingsOpen(true)}
                   className="flex items-center px-4 py-2 bg-zinc-800 text-zinc-300 text-sm font-medium rounded-lg border border-zinc-700/50 hover:bg-zinc-700 transition-colors shadow-sm"
                   title="Cấu hình KPI Base"
