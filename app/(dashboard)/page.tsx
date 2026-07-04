@@ -418,8 +418,17 @@ export default function Page() {
       }
 
       // Auto-assign KPI Base
-      if (field === 'priority') {
-        newP.kpiBase = getKpiForPriority(value, kpiSettings);
+      if (field === 'priority' || field === 'mandayEst') {
+        const priorityVal = field === 'priority' ? value : newP.priority;
+        const mandayVal = field === 'mandayEst' ? value : newP.mandayEst;
+        const kpiPerDayStr = getKpiForPriority(priorityVal, kpiSettings);
+        const md = parseFloat(mandayVal);
+        const kpiPerDay = parseFloat(kpiPerDayStr);
+        if (!isNaN(md) && !isNaN(kpiPerDay)) {
+          newP.kpiBase = (md * kpiPerDay).toString();
+        } else {
+          newP.kpiBase = "";
+        }
       }
 
       return newP;
@@ -446,7 +455,9 @@ export default function Page() {
       }
 
       const calculatedEndDate = calculateEndDate(data.startDateEst, data.mandayEst);
-      const calculatedKpi = getKpiForPriority(data.priority, kpiSettings);
+      const kpiPerDay = parseFloat(getKpiForPriority(data.priority, kpiSettings));
+      const md = parseFloat(data.mandayEst);
+      const calculatedKpi = (!isNaN(md) && !isNaN(kpiPerDay)) ? (md * kpiPerDay).toString() : "";
 
       const newTask: ProjectItem = {
         taskId: "",
@@ -946,8 +957,14 @@ export default function Page() {
               }
             }
 
+            const kpiPerDay = parseFloat(getKpiForPriority(newTask.priority, kpiSettings));
+            const md = parseFloat(newTask.mandayEst);
+            const calculatedKpi = (!isNaN(md) && !isNaN(kpiPerDay)) ? (md * kpiPerDay).toString() : "";
+
             const finalNewTask = {
               ...newTask,
+              endDateEst: calculateEndDate(newTask.startDateEst, newTask.mandayEst),
+              kpiBase: calculatedKpi,
               rootTasks: currentRootTask || newTask.rootTask
             };
 
