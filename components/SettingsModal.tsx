@@ -9,9 +9,15 @@ interface SettingsModalProps {
   onSave: (newSettings: KPISettings) => void;
 }
 
+/**
+ * Component hiển thị cửa sổ (Modal) cấu hình điểm KPI Base theo các mức độ Priority.
+ * Bảng điều khiển này nhận dữ liệu settings từ cha (`page.tsx`) và gọi hàm onSave khi người dùng lưu.
+ */
 export default function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps) {
+  // State cục bộ lưu giá trị nhập liệu tạm thời khi cửa sổ đang mở
   const [localSettings, setLocalSettings] = React.useState<KPISettings>(settings);
 
+  // Mỗi khi mở Modal, đồng bộ lại dữ liệu gốc từ component cha vào state cục bộ
   React.useEffect(() => {
     if (isOpen) {
       setLocalSettings(settings);
@@ -20,6 +26,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
 
   if (!isOpen) return null;
 
+  // Xử lý khi nhấn nút Lưu: Gọi hàm onSave truyền lên cha, sau đó đóng cửa sổ
   const handleSave = () => {
     onSave(localSettings);
     onClose();

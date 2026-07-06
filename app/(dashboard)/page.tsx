@@ -412,16 +412,21 @@ export default function Page() {
       if (p.originalIndex !== proj.originalIndex) return p;
       const newP = { ...p, [field]: value };
       
-      // Auto-calculate End Date
+      // TỰ ĐỘNG TÍNH TOÁN: End Date (Ngày kết thúc)
+      // Khi người dùng sửa Ngày bắt đầu hoặc Số ngày làm việc, gọi hàm calculateEndDate để nhảy ngày mới
       if (field === 'startDateEst' || field === 'mandayEst') {
         newP.endDateEst = calculateEndDate(newP.startDateEst, newP.mandayEst);
       }
 
-      // Auto-assign KPI Base
+      // TỰ ĐỘNG TÍNH TOÁN: KPI Base
+      // Khi người dùng đổi Priority (Normal, High...) hoặc Manday, tính lại KPI = Manday * Điểm Priority
       if (field === 'priority' || field === 'mandayEst') {
         const priorityVal = field === 'priority' ? value : newP.priority;
         const mandayVal = field === 'mandayEst' ? value : newP.mandayEst;
+        
+        // Lấy số điểm chuẩn tương ứng với Priority hiện tại (VD: High -> 12)
         const kpiPerDayStr = getKpiForPriority(priorityVal, kpiSettings);
+        
         const md = parseFloat(mandayVal);
         const kpiPerDay = parseFloat(kpiPerDayStr);
         if (!isNaN(md) && !isNaN(kpiPerDay)) {
@@ -454,6 +459,7 @@ export default function Page() {
         }
       }
 
+      // Tự động tính toán End Date và KPI Base cho Task mới (Inline)
       const calculatedEndDate = calculateEndDate(data.startDateEst, data.mandayEst);
       const kpiPerDay = parseFloat(getKpiForPriority(data.priority, kpiSettings));
       const md = parseFloat(data.mandayEst);
@@ -495,8 +501,10 @@ export default function Page() {
         settings={kpiSettings}
         onSave={(newSettings) => {
           updateKpiSettings(newSettings);
+          // Ngay khi nhấn Lưu cấu hình KPI, hệ thống sẽ tự động quét qua toàn bộ 
+          // các Task đang hiển thị và tính toán lại điểm KPI Base của chúng
           setProjects(prev => prev.map(p => {
-            if (p.isHeader) return p;
+            if (p.isHeader) return p; // Bỏ qua các dòng tiêu đề/nhóm
             const md = parseFloat(p.mandayEst);
             const kpiPerDayStr = newSettings[p.priority as keyof typeof newSettings];
             const kpiPerDay = parseFloat(kpiPerDayStr || "");
@@ -971,6 +979,7 @@ export default function Page() {
               }
             }
 
+            // Tự động tính toán End Date và KPI Base cho Task mới (qua Modal Thêm mới)
             const kpiPerDay = parseFloat(getKpiForPriority(newTask.priority, kpiSettings));
             const md = parseFloat(newTask.mandayEst);
             const calculatedKpi = (!isNaN(md) && !isNaN(kpiPerDay)) ? (md * kpiPerDay).toString() : "";

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 
+// Kiểu dữ liệu lưu trữ điểm KPI cho từng mức độ ưu tiên
 export type KPISettings = {
   Normal: string;
   High: string;
@@ -7,6 +8,7 @@ export type KPISettings = {
   Interrupt: string;
 };
 
+// Cấu hình mặc định ban đầu nếu chưa có dữ liệu lưu trữ
 const DEFAULT_KPI_SETTINGS: KPISettings = {
   Normal: "6",
   High: "12",
@@ -14,9 +16,15 @@ const DEFAULT_KPI_SETTINGS: KPISettings = {
   Interrupt: "6",
 };
 
+/**
+ * Hook quản lý cấu hình KPI Base
+ * - Đọc/ghi dữ liệu từ localStorage để lưu trữ ngay trên trình duyệt của người dùng.
+ * - Cung cấp hàm lấy điểm KPI cho 1 mức độ ưu tiên cụ thể.
+ */
 export function useKPISettings() {
   const [settings, setSettings] = useState<KPISettings>(DEFAULT_KPI_SETTINGS);
 
+  // Tải cấu hình từ localStorage khi component được render lần đầu
   useEffect(() => {
     const saved = localStorage.getItem('kpi_settings');
     if (saved) {
@@ -28,12 +36,14 @@ export function useKPISettings() {
     }
   }, []);
 
+  // Cập nhật cấu hình mới và lưu đè xuống localStorage
   const updateSettings = (newSettings: Partial<KPISettings>) => {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
     localStorage.setItem('kpi_settings', JSON.stringify(updated));
   };
 
+  // Hàm tiện ích: Trả về số điểm KPI dựa vào chuỗi Priority (VD: truyền vào "High" sẽ trả ra "12")
   const getKpiForPriority = (priority: string, currentSettings?: KPISettings) => {
     return (currentSettings || settings)[priority as keyof KPISettings] || "";
   };
